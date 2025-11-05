@@ -18,54 +18,51 @@ type ResultRecord struct {
 	EvalOutput larkbase.TextField   `lark:"eval_output"`
 }
 
-type Runner interface {
-	TaskName() string
-	ReadSamples(ctx context.Context) ([]*Sample, error)
-	WriteResult(ctx context.Context, result *Result) error
-	ReadResults(ctx context.Context) ([]*Result, error)
-	RunTest(ctx context.Context, sample *Sample) (*Result, error)
-	RunEval(ctx context.Context, result *Result) error
-	RunAllTestEval(ctx context.Context) error
-	RunAllTestOnly(ctx context.Context) error
-	RunAllEvalOnly(ctx context.Context) error
-}
+type ReadSamplesFn func(ctx context.Context) ([]*Sample, error)
+type RunTestFn func(ctx context.Context, sample *Sample) (*Result, error)
+type RunEvalFn func(ctx context.Context, result *Result) error
 
-func NewBaseRunner(self Runner, taskName, appId, appSecret, tableUrl string) *BaseRunner {
-	return &BaseRunner{
-		self:      self,
-		taskName:  taskName,
-		appId:     appId,
-		appSecret: appSecret,
-		tableUrl:  tableUrl,
+func NewRunner(appId, appSecret, tableUrl, taskName string, rs ReadSamplesFn, rt RunTestFn, re RunEvalFn) *Runner {
+	return &Runner{
+		appId:        appId,
+		appSecret:    appSecret,
+		tableUrl:     tableUrl,
+		taskName:     taskName,
+		readSampleFn: rs,
+		runTestFn:    rt,
+		runEvalFn:    re,
 	}
 }
 
-type BaseRunner struct {
-	self      Runner
-	taskName  string
+type Runner struct {
 	appId     string
 	appSecret string
 	tableUrl  string
 	conn      *larkbase.Connection[ResultRecord]
+
+	taskName     string
+	readSampleFn ReadSamplesFn
+	runTestFn    RunTestFn
+	runEvalFn    RunEvalFn
 }
 
-func (r *BaseRunner) ReadSamples(ctx context.Context) ([]*Sample, error) {
-	panic("implement me")
+func (r *Runner) ReadSamples(ctx context.Context) ([]*Sample, error) {
+	return r.readSampleFn(ctx)
 }
 
-func (r *BaseRunner) RunTest(ctx context.Context, sample *Sample) (*Result, error) {
-	panic("implement me")
+func (r *Runner) RunTest(ctx context.Context, sample *Sample) (*Result, error) {
+	return r.runTestFn(ctx, sample)
 }
 
-func (r *BaseRunner) RunEval(ctx context.Context, result *Result) error {
-	panic("implement me")
+func (r *Runner) RunEval(ctx context.Context, result *Result) error {
+	return r.runEvalFn(ctx, result)
 }
 
-func (r *BaseRunner) TaskName() string {
+func (r *Runner) TaskName() string {
 	return r.taskName
 }
 
-func (r *BaseRunner) connect(ctx context.Context) error {
+func (r *Runner) connect(ctx context.Context) error {
 	if r.conn == nil {
 		var err error
 		r.conn, err = larkbase.ConnectWithUrl[ResultRecord](ctx, r.appId, r.appSecret, r.tableUrl)
@@ -76,7 +73,7 @@ func (r *BaseRunner) connect(ctx context.Context) error {
 	return nil
 }
 
-func (r *BaseRunner) WriteResult(ctx context.Context, result *Result) error {
+func (r *Runner) WriteResult(ctx context.Context, result *Result) error {
 	if err := r.connect(ctx); err != nil {
 		return err
 	}
@@ -93,7 +90,7 @@ func (r *BaseRunner) WriteResult(ctx context.Context, result *Result) error {
 	return nil
 }
 
-func (r *BaseRunner) ReadResults(ctx context.Context) ([]*Result, error) {
+func (r *Runner) ReadResults(ctx context.Context) ([]*Result, error) {
 	if err := r.connect(ctx); err != nil {
 		return nil, err
 	}
@@ -114,26 +111,26 @@ func (r *BaseRunner) ReadResults(ctx context.Context) ([]*Result, error) {
 	return results, nil
 }
 
-func (r *BaseRunner) RunAllTestEval(ctx context.Context) error {
-	results, _ := r.self.ReadResults(ctx)
+func (r *Runner) RunAllTestEval(ctx context.Context) error {
+	results, _ := r.ReadResults(ctx)
 	if len(results) > 0 {
 		return fmt.Errorf("taskName \"%s\" exists", r.taskName)
 	}
-	samples, err := r.self.ReadSamples(ctx)
+	samples, err := r.ReadSamples(ctx)
 	if err != nil {
 		return err
 	}
 	for _, sample := range samples {
 		var result *Result
-		result, err = r.self.RunTest(ctx, sample)
+		result, err = r.RunTest(ctx, sample)
 		if err != nil {
 			return err
 		}
-		err = r.self.RunEval(ctx, result)
+		err = r.RunEval(ctx, result)
 		if err != nil {
 			return err
 		}
-		err = r.self.WriteResult(ctx, result)
+		err = r.WriteResult(ctx, result)
 		if err != nil {
 			return err
 		}
@@ -141,22 +138,22 @@ func (r *BaseRunner) RunAllTestEval(ctx context.Context) error {
 	return nil
 }
 
-func (r *BaseRunner) RunAllTestOnly(ctx context.Context) error {
-	results, _ := r.self.ReadResults(ctx)
+func (r *Runner) RunAllTestOnly(ctx context.Context) error {
+	results, _ := r.ReadResults(ctx)
 	if len(results) > 0 {
 		return fmt.Errorf("taskName \"%s\" exists", r.taskName)
 	}
-	samples, err := r.self.ReadSamples(ctx)
+	samples, err := r.ReadSamples(ctx)
 	if err != nil {
 		return err
 	}
 	for _, sample := range samples {
 		var result *Result
-		result, err = r.self.RunTest(ctx, sample)
+		result, err = r.RunTest(ctx, sample)
 		if err != nil {
 			return err
 		}
-		err = r.self.WriteResult(ctx, result)
+		err = r.WriteResult(ctx, result)
 		if err != nil {
 			return err
 		}
@@ -164,17 +161,17 @@ func (r *BaseRunner) RunAllTestOnly(ctx context.Context) error {
 	return nil
 }
 
-func (r *BaseRunner) RunAllEvalOnly(ctx context.Context) error {
-	results, err := r.self.ReadResults(ctx)
+func (r *Runner) RunAllEvalOnly(ctx context.Context) error {
+	results, err := r.ReadResults(ctx)
 	if err != nil {
 		return err
 	}
 	for _, result := range results {
-		err = r.self.RunEval(ctx, result)
+		err = r.RunEval(ctx, result)
 		if err != nil {
 			return err
 		}
-		err = r.self.WriteResult(ctx, result)
+		err = r.WriteResult(ctx, result)
 		if err != nil {
 			return err
 		}
