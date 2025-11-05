@@ -113,7 +113,7 @@ func (r *Runner) ReadResults(ctx context.Context) ([]*Result, error) {
 	return results, nil
 }
 
-func (r *Runner) RunAllTestEval(ctx context.Context) error {
+func (r *Runner) RunAllTestEval(ctx context.Context, concurrency int) error {
 	results, _ := r.ReadResults(ctx)
 	if len(results) > 0 {
 		return fmt.Errorf("taskName \"%s\" exists", r.taskName)
@@ -122,21 +122,36 @@ func (r *Runner) RunAllTestEval(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	tasks := make(chan *Sample, len(samples))
 	for _, sample := range samples {
-		var result *Result
-		result, err = r.RunTest(ctx, sample)
-		if err != nil {
-			return err
-		}
-		err = r.RunEval(ctx, result)
-		if err != nil {
-			return err
-		}
-		err = r.WriteResult(ctx, result)
-		if err != nil {
-			return err
-		}
+		tasks <- sample
 	}
+	close(tasks)
+	concurrency = min(concurrency, len(samples))
+	var wg sync.WaitGroup
+	for i := 0; i < concurrency; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for task := range tasks {
+				result, runErr := r.RunTest(ctx, task)
+				if runErr != nil {
+					log.ErrorLog("fail to run task %d: %v", task.Id(), err)
+					continue
+				}
+				runErr = r.RunEval(ctx, result)
+				if runErr != nil {
+					log.ErrorLog("fail to eval task %d: %v", task.Id(), err)
+					continue
+				}
+				writeErr := r.WriteResult(ctx, result)
+				if writeErr != nil {
+					log.ErrorLog("fail to write result for task %d: %v", task.Id(), writeErr)
+				}
+			}
+		}()
+	}
+	wg.Wait()
 	return nil
 }
 
@@ -164,12 +179,12 @@ func (r *Runner) RunAllTestOnly(ctx context.Context, concurrency int) error {
 			for task := range tasks {
 				result, runErr := r.RunTest(ctx, task)
 				if runErr != nil {
-					log.ErrorLog("fail to run task %s: %v", r.taskName, err)
+					log.ErrorLog("fail to run task %d: %v", task.Id(), err)
 					continue
 				}
 				writeErr := r.WriteResult(ctx, result)
 				if writeErr != nil {
-					log.ErrorLog("fail to write result for task %s: %v", r.taskName, writeErr)
+					log.ErrorLog("fail to write result for task %d: %v", task.Id(), writeErr)
 				}
 			}
 		}()
@@ -196,17 +211,17 @@ func (r *Runner) RunAllEvalOnly(ctx context.Context, concurrency int) error {
 			defer wg.Done()
 			for task := range tasks {
 				evalErr := r.RunEval(ctx, task)
-				if err != nil {
+				if evalErr != nil {
 					log.ErrorLog("fail to eval %d: %v", task.sample.Id(), err)
 					continue
 				}
-				err = r.WriteResult(ctx, result)
+				evalErr = r.WriteResult(ctx, task)
 				if err != nil {
-					return err
+					log.ErrorLog("fail to write result for task %d: %v", task.sample.Id(), err)
 				}
 			}
 		}()
-
 	}
+	wg.Wait()
 	return nil
 }

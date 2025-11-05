@@ -10,6 +10,7 @@ import (
 	"github.com/lincaiyong/uniapi/service/monica"
 	"os"
 	"strconv"
+	"strings"
 )
 
 var appId, appSecret string
@@ -33,7 +34,7 @@ func readSamples(ctx context.Context) ([]*testeval.Sample, error) {
 	}
 	var records []*Record
 	err = conn.FindAll(&records, larkbase.NewFindOption(conn.FilterAnd(
-		conn.Condition().Id.IsLess(10),
+		conn.Condition().Id.IsLess(100),
 	)))
 	if err != nil {
 		return nil, err
@@ -63,6 +64,15 @@ func runTest(ctx context.Context, sample *testeval.Sample) (*testeval.Result, er
 	}
 	q := fmt.Sprintf(`分析以下调用栈是否存在%s漏洞。
 
+格式要求
+------
+{
+	"vuln": true/false,
+	"reason": "..."
+}
+
+调用栈
+-----
 %s`, input.VulnType, input.Context)
 	ret, err := monica.ChatCompletion(ctx, monica.ModelGPT41Mini, q, func(s string) {
 		fmt.Print(s)
@@ -76,15 +86,22 @@ func runTest(ctx context.Context, sample *testeval.Sample) (*testeval.Result, er
 }
 
 func runEval(ctx context.Context, result *testeval.Result) error {
-	panic("implement me")
+	ok := result.EvalInput() == "正" && strings.Contains(result.TestOutput(), "\"vuln\": true") ||
+		result.EvalInput() == "负" && strings.Contains(result.TestOutput(), "\"vuln\": false")
+	if ok {
+		result.SetEvalOutput("1")
+	} else {
+		result.SetEvalOutput("0")
+	}
+	return nil
 }
 
 func main() {
 	appId, appSecret = os.Getenv("LARK_APP_ID"), os.Getenv("LARK_APP_SECRET")
 	tableUrl := "https://bytedance.larkoffice.com/base/RB31bsA7Pa3f5JsKDlhcoTYdnue?table=tblhCLZI2Td2SSGB&view=vew8snFkYj"
-	r := testeval.NewRunner(appId, appSecret, tableUrl, "task-129", readSamples, runTest, runEval)
+	r := testeval.NewRunner(appId, appSecret, tableUrl, "cg-100-2211", readSamples, runTest, runEval)
 	ctx := context.Background()
-	err := r.RunAllTestOnly(ctx, 9)
+	err := r.RunAllTestEval(ctx, 10)
 	if err != nil {
 		log.ErrorLog("fail to run: %v", err)
 		return

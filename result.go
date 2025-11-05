@@ -14,6 +14,14 @@ type Result struct {
 	evalOutput string
 }
 
+func (r *Result) SetTestOutput(testOutput string) {
+	r.testOutput = testOutput
+}
+
+func (r *Result) SetEvalOutput(evalOutput string) {
+	r.evalOutput = evalOutput
+}
+
 func (r *Result) Sample() *Sample {
 	return r.sample
 }
