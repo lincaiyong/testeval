@@ -1,5 +1,7 @@
 github.com/fatih/color v1.18.0 h1:S8gINlzdQ840/4pfAwic/ZE0djQEH3wM94VfqLTZcOM=
 github.com/fatih/color v1.18.0/go.mod h1:4FelSpRwEGDpQ12mAdzqdOukCy4u8WUtOY6lkT/6HfU=
+github.com/google/uuid v1.6.0 h1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=
+github.com/google/uuid v1.6.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
 github.com/jinzhu/inflection v1.0.0 h1:K317FqzuhWc8YvSVlFMCCUb36O/S9MCKRDI7QkRKD/E=
 github.com/jinzhu/inflection v1.0.0/go.mod h1:h+uFLlag+Qp1Va5pdKtLDYj+kHp5pxUVkryuEj+Srlc=
 github.com/jinzhu/now v1.1.5 h1:/o9tlHleP7gOFmsnYNz3RGnqzefHA47wQpKrrdTIwXQ=
@@ -8,6 +10,8 @@ github.com/lincaiyong/larkbase v1.0.24 h1:Lpf/410sbv9iawN6BIu9mhUjXuaOoU4RPaeQ4y
 github.com/lincaiyong/larkbase v1.0.24/go.mod h1:EdMPQE68mzqOnEya1ElJsDnn/tj7slXzf+dcq6ru8+8=
 github.com/lincaiyong/log v1.0.4 h1:CGqedLp3bX3CmyJZ9gucNnZOWgItBkp9zVlWDkdRF9k=
 github.com/lincaiyong/log v1.0.4/go.mod h1:WoYpWABNVVZ8axgLURlrlrks5rjJ229408gjDVQtlx4=
+github.com/lincaiyong/uniapi v1.0.17 h1:3gGl80EkQaHkYAawkQuxPkdQaos7FV/P1ooiKBvp37w=
+github.com/lincaiyong/uniapi v1.0.17/go.mod h1:vhJ+1/mlemaLd9WmI0fIbYQdr0Em0/DEnVwdk7JXknM=
 github.com/mattn/go-colorable v0.1.14 h1:9A9LHSqF/7dyVVX6g0U9cwm9pG3kP9gSzcuIPHPsaIE=
 github.com/mattn/go-colorable v0.1.14/go.mod h1:6LmQG8QLFO4G5z1gPvYEzlUgJ2wF+stgPZH1UqBm1s8=
 github.com/mattn/go-isatty v0.0.20 h1:xfD0iDuEKnDkl03q4limB+vH+GxLEtL/jb4xVJSWWEY=

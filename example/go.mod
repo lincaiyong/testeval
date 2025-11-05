@@ -5,15 +5,17 @@ go 1.25.1
 replace github.com/lincaiyong/testeval v1.0.1 => ..
 
 require (
+	github.com/lincaiyong/larkbase v1.0.24
 	github.com/lincaiyong/log v1.0.4
 	github.com/lincaiyong/testeval v1.0.1
+	github.com/lincaiyong/uniapi v1.0.17
 )
 
 require (
 	github.com/fatih/color v1.18.0 // indirect
+	github.com/google/uuid v1.6.0 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
-	github.com/lincaiyong/larkbase v1.0.24 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
