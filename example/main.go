@@ -82,9 +82,9 @@ func runEval(ctx context.Context, result *testeval.Result) error {
 func main() {
 	appId, appSecret = os.Getenv("LARK_APP_ID"), os.Getenv("LARK_APP_SECRET")
 	tableUrl := "https://bytedance.larkoffice.com/base/RB31bsA7Pa3f5JsKDlhcoTYdnue?table=tblhCLZI2Td2SSGB&view=vew8snFkYj"
-	r := testeval.NewRunner(appId, appSecret, tableUrl, "task-127", readSamples, runTest, runEval)
+	r := testeval.NewRunner(appId, appSecret, tableUrl, "task-129", readSamples, runTest, runEval)
 	ctx := context.Background()
-	err := r.RunAllTestOnly(ctx)
+	err := r.RunAllTestOnly(ctx, 9)
 	if err != nil {
 		log.ErrorLog("fail to run: %v", err)
 		return

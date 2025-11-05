@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"github.com/lincaiyong/larkbase"
+	"github.com/lincaiyong/log"
 	"strconv"
+	"sync"
 )
 
 type ResultRecord struct {
@@ -138,7 +140,7 @@ func (r *Runner) RunAllTestEval(ctx context.Context) error {
 	return nil
 }
 
-func (r *Runner) RunAllTestOnly(ctx context.Context) error {
+func (r *Runner) RunAllTestOnly(ctx context.Context, concurrency int) error {
 	results, _ := r.ReadResults(ctx)
 	if len(results) > 0 {
 		return fmt.Errorf("taskName \"%s\" exists", r.taskName)
@@ -147,34 +149,64 @@ func (r *Runner) RunAllTestOnly(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	tasks := make(chan *Sample, len(samples))
 	for _, sample := range samples {
-		var result *Result
-		result, err = r.RunTest(ctx, sample)
-		if err != nil {
-			return err
-		}
-		err = r.WriteResult(ctx, result)
-		if err != nil {
-			return err
-		}
+		tasks <- sample
 	}
+	close(tasks)
+
+	concurrency = min(concurrency, len(samples))
+	var wg sync.WaitGroup
+	for i := 0; i < concurrency; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for task := range tasks {
+				result, runErr := r.RunTest(ctx, task)
+				if runErr != nil {
+					log.ErrorLog("fail to run task %s: %v", r.taskName, err)
+					continue
+				}
+				writeErr := r.WriteResult(ctx, result)
+				if writeErr != nil {
+					log.ErrorLog("fail to write result for task %s: %v", r.taskName, writeErr)
+				}
+			}
+		}()
+	}
+	wg.Wait()
 	return nil
 }
 
-func (r *Runner) RunAllEvalOnly(ctx context.Context) error {
+func (r *Runner) RunAllEvalOnly(ctx context.Context, concurrency int) error {
 	results, err := r.ReadResults(ctx)
 	if err != nil {
 		return err
 	}
+	tasks := make(chan *Result, len(results))
 	for _, result := range results {
-		err = r.RunEval(ctx, result)
-		if err != nil {
-			return err
-		}
-		err = r.WriteResult(ctx, result)
-		if err != nil {
-			return err
-		}
+		tasks <- result
+	}
+	close(tasks)
+	concurrency = min(concurrency, len(results))
+	var wg sync.WaitGroup
+	for i := 0; i < concurrency; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for task := range tasks {
+				evalErr := r.RunEval(ctx, task)
+				if err != nil {
+					log.ErrorLog("fail to eval %d: %v", task.sample.Id(), err)
+					continue
+				}
+				err = r.WriteResult(ctx, result)
+				if err != nil {
+					return err
+				}
+			}
+		}()
+
 	}
 	return nil
 }
