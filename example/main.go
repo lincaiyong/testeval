@@ -34,7 +34,9 @@ func readSamples(ctx context.Context) ([]*testeval.Sample, error) {
 	}
 	var records []*Record
 	err = conn.FindAll(&records, larkbase.NewFindOption(conn.FilterAnd(
-		conn.Condition().Id.IsLess(100),
+		// conn.Condition().Id.IsLess(100),
+		conn.Condition().VulnType.Is("SSRF"),
+		//conn.Condition().Tag.Is("正"),
 	)))
 	if err != nil {
 		return nil, err
@@ -64,17 +66,42 @@ func runTest(ctx context.Context, sample *testeval.Sample) (*testeval.Result, er
 	}
 	q := fmt.Sprintf(`分析以下调用栈是否存在%s漏洞。
 
+任务SOP
+------
+1. 根据漏洞类型找到sink语句
+2. 从sink语句提取程序切片（对sink语句有影响的语句集合）
+3. 看切片中是否包含用户可控数据
+4. 看切片中是否包含安全防护代码
+5. 如果有用户可控数据，且没有安全防护错误，可以断言有风险；否则无风险。
+
+用户可控数据
+---------
+直接来自http请求header、params、body的数据。
+以下数据不是用户可控数据：
+1. 来自配置文件
+2. 来自http请求的响应
+3. 来自环境变量
+4. 其他不确定的值
+
+安全防护代码
+----------
+1. helpers.CheckCmdParams对命令注入有效防护
+
+
 格式要求
 ------
 {
 	"vuln": true/false,
-	"reason": "..."
+	"reason": "...",
+	"slicing": "..."
 }
+
+slicing格式示例：“source语句 -> 语句2 -> 语句3 ... -> sink语句”
 
 调用栈
 -----
 %s`, input.VulnType, input.Context)
-	ret, err := monica.ChatCompletion(ctx, monica.ModelGPT41Mini, q, func(s string) {
+	ret, err := monica.ChatCompletion(ctx, monica.ModelClaude37Sonnet, q, func(s string) {
 		fmt.Print(s)
 	})
 	if err != nil {
@@ -99,7 +126,7 @@ func runEval(ctx context.Context, result *testeval.Result) error {
 func main() {
 	appId, appSecret = os.Getenv("LARK_APP_ID"), os.Getenv("LARK_APP_SECRET")
 	tableUrl := "https://bytedance.larkoffice.com/base/RB31bsA7Pa3f5JsKDlhcoTYdnue?table=tblhCLZI2Td2SSGB&view=vew8snFkYj"
-	r := testeval.NewRunner(appId, appSecret, tableUrl, "cg-100-2211", readSamples, runTest, runEval)
+	r := testeval.NewRunner(appId, appSecret, tableUrl, "cg-100-2257", readSamples, runTest, runEval)
 	ctx := context.Background()
 	err := r.RunAllTestEval(ctx, 10)
 	if err != nil {
