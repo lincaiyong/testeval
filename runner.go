@@ -136,12 +136,12 @@ func (r *Runner) RunAllTestEval(ctx context.Context, concurrency int) error {
 			for task := range tasks {
 				result, runErr := r.RunTest(ctx, task)
 				if runErr != nil {
-					log.ErrorLog("fail to run task %d: %v", task.Id(), err)
+					log.ErrorLog("fail to run task %d: %v", task.Id(), runErr)
 					continue
 				}
 				runErr = r.RunEval(ctx, result)
 				if runErr != nil {
-					log.ErrorLog("fail to eval task %d: %v", task.Id(), err)
+					log.ErrorLog("fail to eval task %d: %v", task.Id(), runErr)
 					continue
 				}
 				writeErr := r.WriteResult(ctx, result)
@@ -179,7 +179,7 @@ func (r *Runner) RunAllTestOnly(ctx context.Context, concurrency int) error {
 			for task := range tasks {
 				result, runErr := r.RunTest(ctx, task)
 				if runErr != nil {
-					log.ErrorLog("fail to run task %d: %v", task.Id(), err)
+					log.ErrorLog("fail to run task %d: %v", task.Id(), runErr)
 					continue
 				}
 				writeErr := r.WriteResult(ctx, result)
@@ -212,12 +212,12 @@ func (r *Runner) RunAllEvalOnly(ctx context.Context, concurrency int) error {
 			for task := range tasks {
 				evalErr := r.RunEval(ctx, task)
 				if evalErr != nil {
-					log.ErrorLog("fail to eval %d: %v", task.sample.Id(), err)
+					log.ErrorLog("fail to eval %d: %v", task.sample.Id(), evalErr)
 					continue
 				}
 				evalErr = r.WriteResult(ctx, task)
 				if err != nil {
-					log.ErrorLog("fail to write result for task %d: %v", task.sample.Id(), err)
+					log.ErrorLog("fail to write result for task %d: %v", task.sample.Id(), evalErr)
 				}
 			}
 		}()
