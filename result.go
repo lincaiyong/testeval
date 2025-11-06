@@ -37,6 +37,10 @@ func (r *Result) RecordId() string {
 	return r.recordId
 }
 
+func (r *Result) SetRecordId(recordId string) {
+	r.recordId = recordId
+}
+
 func (r *Result) SetTestOutput(testOutput string) {
 	r.testOutput = testOutput
 }
