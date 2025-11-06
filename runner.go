@@ -101,10 +101,9 @@ func (r *Runner) ReadResults(ctx context.Context) ([]*Result, error) {
 	results := make([]*Result, len(records))
 	for i, record := range records {
 		sampleId, _ := strconv.Atoi(record.SampleId.StringValue())
-		result := NewResult(sampleId,
+		result := NewResult(record.RecordId, sampleId,
 			record.TestInput.StringValue(), record.EvalInput.StringValue(),
 			record.TestOutput.StringValue(), record.EvalOutput.StringValue())
-		result.SetRecordId(record.RecordId)
 		results[i] = result
 	}
 	return results, nil
