@@ -113,23 +113,28 @@ func (r *Runner) ReadResults(ctx context.Context) ([]*Result, error) {
 }
 
 func (r *Runner) RunAllTestEval(ctx context.Context, concurrency int) error {
-	results, _ := r.ReadResults(ctx)
-	if len(results) > 0 {
-		return fmt.Errorf("taskName \"%s\" exists", r.taskName)
+	results, err := r.ReadResults(ctx)
+	if err != nil {
+		return fmt.Errorf("fail to read results: %w", err)
+	}
+	existsResults := make(map[int]bool)
+	for _, result := range results {
+		existsResults[result.SampleId()] = true
 	}
 	samples, err := r.ReadSamples(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("fail to read samples: %w", err)
 	}
 	tasks := make(chan *Sample, len(samples))
 	for _, sample := range samples {
-		tasks <- sample
+		if !existsResults[sample.Id()] {
+			tasks <- sample
+		}
 	}
 	close(tasks)
 	concurrency = min(concurrency, len(samples))
 	g, ctx := errgroup.WithContext(ctx)
 	g.SetLimit(concurrency)
-
 	for task := range tasks {
 		task := task
 		g.Go(func() error {
@@ -152,17 +157,23 @@ func (r *Runner) RunAllTestEval(ctx context.Context, concurrency int) error {
 }
 
 func (r *Runner) RunAllTestOnly(ctx context.Context, concurrency int) error {
-	results, _ := r.ReadResults(ctx)
-	if len(results) > 0 {
-		return fmt.Errorf("taskName \"%s\" exists", r.taskName)
+	results, err := r.ReadResults(ctx)
+	if err != nil {
+		return fmt.Errorf("fail to read results: %w", err)
+	}
+	existsResults := make(map[int]bool)
+	for _, result := range results {
+		existsResults[result.SampleId()] = true
 	}
 	samples, err := r.ReadSamples(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("fail to read samples: %w", err)
 	}
 	tasks := make(chan *Sample, len(samples))
 	for _, sample := range samples {
-		tasks <- sample
+		if !existsResults[sample.Id()] {
+			tasks <- sample
+		}
 	}
 	close(tasks)
 	concurrency = min(concurrency, len(samples))
