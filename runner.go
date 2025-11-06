@@ -11,10 +11,8 @@ import (
 type ReadFn func(ctx context.Context) ([]*Result, error)
 type RunFn func(ctx context.Context, result *Result) error
 
-func NewRunner(appId, appSecret, tableUrl, taskName string, readFn ReadFn, runTestFn, runEvalFn RunFn) *Runner {
+func NewRunner(tableUrl, taskName string, readFn ReadFn, runTestFn, runEvalFn RunFn) *Runner {
 	return &Runner{
-		appId:     appId,
-		appSecret: appSecret,
 		tableUrl:  tableUrl,
 		taskName:  taskName,
 		readFn:    readFn,
@@ -24,10 +22,8 @@ func NewRunner(appId, appSecret, tableUrl, taskName string, readFn ReadFn, runTe
 }
 
 type Runner struct {
-	appId     string
-	appSecret string
-	tableUrl  string
-	conn      *larkbase.Connection[ResultRecord]
+	tableUrl string
+	conn     *larkbase.Connection[ResultRecord]
 
 	taskName  string
 	readFn    ReadFn
@@ -54,7 +50,7 @@ func (r *Runner) TaskName() string {
 func (r *Runner) connect(ctx context.Context) error {
 	if r.conn == nil {
 		var err error
-		r.conn, err = larkbase.ConnectWithUrl[ResultRecord](ctx, r.appId, r.appSecret, r.tableUrl)
+		r.conn, err = larkbase.ConnectWithUrl[ResultRecord](ctx, appId, appSecret, r.tableUrl)
 		if err != nil {
 			return err
 		}

@@ -2,6 +2,8 @@ module github.com/lincaiyong/testeval
 
 go 1.25.0
 
+replace github.com/lincaiyong/larkbase v1.0.25 => ../larkbase
+
 require (
 	github.com/lincaiyong/larkbase v1.0.25
 	golang.org/x/sync v0.17.0
