@@ -8,30 +8,18 @@ import (
 	"strconv"
 )
 
-type ResultRecord struct {
-	larkbase.Meta
+type ReadFn func(ctx context.Context) ([]*Result, error)
+type RunFn func(ctx context.Context, result *Result) error
 
-	TaskName   larkbase.TextField   `lark:"task_name"`
-	SampleId   larkbase.NumberField `lark:"sample_id"`
-	TestInput  larkbase.TextField   `lark:"test_input"`
-	EvalInput  larkbase.TextField   `lark:"eval_input"`
-	TestOutput larkbase.TextField   `lark:"test_output"`
-	EvalOutput larkbase.TextField   `lark:"eval_output"`
-}
-
-type ReadSamplesFn func(ctx context.Context) ([]*Sample, error)
-type RunTestFn func(ctx context.Context, sample *Sample) (*Result, error)
-type RunEvalFn func(ctx context.Context, result *Result) error
-
-func NewRunner(appId, appSecret, tableUrl, taskName string, rs ReadSamplesFn, rt RunTestFn, re RunEvalFn) *Runner {
+func NewRunner(appId, appSecret, tableUrl, taskName string, readFn ReadFn, runTestFn, runEvalFn RunFn) *Runner {
 	return &Runner{
-		appId:        appId,
-		appSecret:    appSecret,
-		tableUrl:     tableUrl,
-		taskName:     taskName,
-		readSampleFn: rs,
-		runTestFn:    rt,
-		runEvalFn:    re,
+		appId:     appId,
+		appSecret: appSecret,
+		tableUrl:  tableUrl,
+		taskName:  taskName,
+		readFn:    readFn,
+		runTestFn: runTestFn,
+		runEvalFn: runEvalFn,
 	}
 }
 
@@ -41,18 +29,18 @@ type Runner struct {
 	tableUrl  string
 	conn      *larkbase.Connection[ResultRecord]
 
-	taskName     string
-	readSampleFn ReadSamplesFn
-	runTestFn    RunTestFn
-	runEvalFn    RunEvalFn
+	taskName  string
+	readFn    ReadFn
+	runTestFn RunFn
+	runEvalFn RunFn
 }
 
-func (r *Runner) ReadSamples(ctx context.Context) ([]*Sample, error) {
-	return r.readSampleFn(ctx)
+func (r *Runner) ReadSamples(ctx context.Context) ([]*Result, error) {
+	return r.readFn(ctx)
 }
 
-func (r *Runner) RunTest(ctx context.Context, sample *Sample) (*Result, error) {
-	return r.runTestFn(ctx, sample)
+func (r *Runner) RunTest(ctx context.Context, result *Result) error {
+	return r.runTestFn(ctx, result)
 }
 
 func (r *Runner) RunEval(ctx context.Context, result *Result) error {
@@ -113,8 +101,8 @@ func (r *Runner) ReadResults(ctx context.Context) ([]*Result, error) {
 	results := make([]*Result, len(records))
 	for i, record := range records {
 		sampleId, _ := strconv.Atoi(record.SampleId.StringValue())
-		result := NewResult(
-			NewSample(sampleId, record.TestInput.StringValue(), record.EvalInput.StringValue()),
+		result := NewResult(sampleId,
+			record.TestInput.StringValue(), record.EvalInput.StringValue(),
 			record.TestOutput.StringValue(), record.EvalOutput.StringValue())
 		result.SetRecordId(record.RecordId)
 		results[i] = result
@@ -122,23 +110,30 @@ func (r *Runner) ReadResults(ctx context.Context) ([]*Result, error) {
 	return results, nil
 }
 
-func (r *Runner) RunAllTestEval(ctx context.Context, concurrency int) error {
+func (r *Runner) run(ctx context.Context, concurrency int, doTest, doEval bool) error {
 	results, err := r.ReadResults(ctx)
 	if err != nil {
 		return fmt.Errorf("fail to read results: %w", err)
 	}
-	existsResults := make(map[int]bool)
+	existsResults := make(map[int]*Result)
 	for _, result := range results {
-		existsResults[result.SampleId()] = true
+		existsResults[result.SampleId()] = result
 	}
 	samples, err := r.ReadSamples(ctx)
 	if err != nil {
 		return fmt.Errorf("fail to read samples: %w", err)
 	}
-	tasks := make(chan *Sample, len(samples))
+	tasks := make(chan *Result, len(samples))
 	for _, sample := range samples {
-		if !existsResults[sample.Id()] {
-			tasks <- sample
+		if doTest {
+			if _, ok := existsResults[sample.SampleId()]; !ok {
+				tasks <- sample
+			}
+		} else {
+			if tmp, ok := existsResults[sample.SampleId()]; ok {
+				sample.SetTestOutput(tmp.TestOutput())
+				tasks <- sample
+			}
 		}
 	}
 	close(tasks)
@@ -148,90 +143,41 @@ func (r *Runner) RunAllTestEval(ctx context.Context, concurrency int) error {
 	for task := range tasks {
 		task := task
 		g.Go(func() error {
-			result, err := r.RunTest(ctx, task)
-			if err != nil {
-				return fmt.Errorf("fail to run task %d: %w", task.Id(), err)
+			var err error
+			if doTest {
+				err = r.RunTest(ctx, task)
+				if err != nil {
+					return fmt.Errorf("fail to run task %d: %w", task.SampleId(), err)
+				}
 			}
-			err = r.RunEval(ctx, result)
-			if err != nil {
-				return fmt.Errorf("fail to eval task %d: %w", task.Id(), err)
+			if doEval {
+				err = r.RunEval(ctx, task)
+				if err != nil {
+					return fmt.Errorf("fail to eval task %d: %w", task.SampleId(), err)
+				}
 			}
-			err = r.WriteResult(ctx, result, true)
+			create := true
+			if !doTest {
+				create = false
+			}
+			err = r.WriteResult(ctx, task, create)
 			if err != nil {
-				return fmt.Errorf("fail to write result for task %d: %w", task.Id(), err)
+				return fmt.Errorf("fail to write result for task %d: %w", task.SampleId(), err)
 			}
 			return nil
 		})
 	}
 	return g.Wait()
+}
+
+func (r *Runner) RunAllTestEval(ctx context.Context, concurrency int) error {
+	return r.run(ctx, concurrency, true, true)
 }
 
 func (r *Runner) RunAllTestOnly(ctx context.Context, concurrency int) error {
-	results, err := r.ReadResults(ctx)
-	if err != nil {
-		return fmt.Errorf("fail to read results: %w", err)
-	}
-	existsResults := make(map[int]bool)
-	for _, result := range results {
-		existsResults[result.SampleId()] = true
-	}
-	samples, err := r.ReadSamples(ctx)
-	if err != nil {
-		return fmt.Errorf("fail to read samples: %w", err)
-	}
-	tasks := make(chan *Sample, len(samples))
-	for _, sample := range samples {
-		if !existsResults[sample.Id()] {
-			tasks <- sample
-		}
-	}
-	close(tasks)
-	concurrency = min(concurrency, len(samples))
-	g, ctx := errgroup.WithContext(ctx)
-	g.SetLimit(concurrency)
-	for task := range tasks {
-		task := task
-		g.Go(func() error {
-			result, err := r.RunTest(ctx, task)
-			if err != nil {
-				return fmt.Errorf("fail to run task %d: %w", task.Id(), err)
-			}
-			err = r.WriteResult(ctx, result, true)
-			if err != nil {
-				return fmt.Errorf("fail to write result for task %d: %w", task.Id(), err)
-			}
-			return nil
-		})
-	}
-	return g.Wait()
+	return r.run(ctx, concurrency, true, false)
 }
 
 func (r *Runner) RunAllEvalOnly(ctx context.Context, concurrency int) error {
-	results, err := r.ReadResults(ctx)
-	if err != nil {
-		return err
-	}
-	tasks := make(chan *Result, len(results))
-	for _, result := range results {
-		tasks <- result
-	}
-	close(tasks)
-	concurrency = min(concurrency, len(results))
-	g, ctx := errgroup.WithContext(ctx)
-	g.SetLimit(concurrency)
-	for task := range tasks {
-		task := task
-		g.Go(func() error {
-			err := r.RunEval(ctx, task)
-			if err != nil {
-				return fmt.Errorf("fail to eval %d: %w", task.sample.Id(), err)
-			}
-			err = r.WriteResult(ctx, task, false)
-			if err != nil {
-				return fmt.Errorf("fail to write result for task %d: %w", task.sample.Id(), err)
-			}
-			return nil
-		})
-	}
-	return g.Wait()
+	return r.run(ctx, concurrency, false, true)
 }

@@ -1,8 +1,23 @@
 package testeval
 
-func NewResult(sample *Sample, testOutput, evalOutput string) *Result {
+import "github.com/lincaiyong/larkbase"
+
+type ResultRecord struct {
+	larkbase.Meta
+
+	TaskName   larkbase.TextField   `lark:"task_name"`
+	SampleId   larkbase.NumberField `lark:"sample_id"`
+	TestInput  larkbase.TextField   `lark:"test_input"`
+	EvalInput  larkbase.TextField   `lark:"eval_input"`
+	TestOutput larkbase.TextField   `lark:"test_output"`
+	EvalOutput larkbase.TextField   `lark:"eval_output"`
+}
+
+func NewResult(sampleId int, testInput, evalInput, testOutput, evalOutput string) *Result {
 	return &Result{
-		sample:     sample,
+		sampleId:   sampleId,
+		testInput:  testInput,
+		evalInput:  evalInput,
 		testOutput: testOutput,
 		evalOutput: evalOutput,
 	}
@@ -10,7 +25,9 @@ func NewResult(sample *Sample, testOutput, evalOutput string) *Result {
 
 type Result struct {
 	recordId   string
-	sample     *Sample
+	sampleId   int
+	testInput  string
+	evalInput  string
 	testOutput string
 	evalOutput string
 }
@@ -31,20 +48,16 @@ func (r *Result) SetEvalOutput(evalOutput string) {
 	r.evalOutput = evalOutput
 }
 
-func (r *Result) Sample() *Sample {
-	return r.sample
-}
-
 func (r *Result) SampleId() int {
-	return r.sample.Id()
+	return r.sampleId
 }
 
 func (r *Result) TestInput() string {
-	return r.sample.TestInput()
+	return r.testInput
 }
 
 func (r *Result) EvalInput() string {
-	return r.sample.EvalInput()
+	return r.evalInput
 }
 
 func (r *Result) TestOutput() string {
