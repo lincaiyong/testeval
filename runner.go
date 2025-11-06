@@ -4,9 +4,8 @@ import (
 	"context"
 	"fmt"
 	"github.com/lincaiyong/larkbase"
-	"github.com/lincaiyong/log"
+	"golang.org/x/sync/errgroup"
 	"strconv"
-	"sync"
 )
 
 type ResultRecord struct {
@@ -128,31 +127,28 @@ func (r *Runner) RunAllTestEval(ctx context.Context, concurrency int) error {
 	}
 	close(tasks)
 	concurrency = min(concurrency, len(samples))
-	var wg sync.WaitGroup
-	for i := 0; i < concurrency; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for task := range tasks {
-				result, runErr := r.RunTest(ctx, task)
-				if runErr != nil {
-					log.ErrorLog("fail to run task %d: %v", task.Id(), runErr)
-					continue
-				}
-				runErr = r.RunEval(ctx, result)
-				if runErr != nil {
-					log.ErrorLog("fail to eval task %d: %v", task.Id(), runErr)
-					continue
-				}
-				writeErr := r.WriteResult(ctx, result)
-				if writeErr != nil {
-					log.ErrorLog("fail to write result for task %d: %v", task.Id(), writeErr)
-				}
+	g, ctx := errgroup.WithContext(ctx)
+	g.SetLimit(concurrency)
+
+	for task := range tasks {
+		task := task
+		g.Go(func() error {
+			result, err := r.RunTest(ctx, task)
+			if err != nil {
+				return fmt.Errorf("fail to run task %d: %w", task.Id(), err)
 			}
-		}()
+			err = r.RunEval(ctx, result)
+			if err != nil {
+				return fmt.Errorf("fail to eval task %d: %w", task.Id(), err)
+			}
+			err = r.WriteResult(ctx, result)
+			if err != nil {
+				return fmt.Errorf("fail to write result for task %d: %w", task.Id(), err)
+			}
+			return nil
+		})
 	}
-	wg.Wait()
-	return nil
+	return g.Wait()
 }
 
 func (r *Runner) RunAllTestOnly(ctx context.Context, concurrency int) error {
@@ -169,28 +165,24 @@ func (r *Runner) RunAllTestOnly(ctx context.Context, concurrency int) error {
 		tasks <- sample
 	}
 	close(tasks)
-
 	concurrency = min(concurrency, len(samples))
-	var wg sync.WaitGroup
-	for i := 0; i < concurrency; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for task := range tasks {
-				result, runErr := r.RunTest(ctx, task)
-				if runErr != nil {
-					log.ErrorLog("fail to run task %d: %v", task.Id(), runErr)
-					continue
-				}
-				writeErr := r.WriteResult(ctx, result)
-				if writeErr != nil {
-					log.ErrorLog("fail to write result for task %d: %v", task.Id(), writeErr)
-				}
+	g, ctx := errgroup.WithContext(ctx)
+	g.SetLimit(concurrency)
+	for task := range tasks {
+		task := task
+		g.Go(func() error {
+			result, err := r.RunTest(ctx, task)
+			if err != nil {
+				return fmt.Errorf("fail to run task %d: %w", task.Id(), err)
 			}
-		}()
+			err = r.WriteResult(ctx, result)
+			if err != nil {
+				return fmt.Errorf("fail to write result for task %d: %w", task.Id(), err)
+			}
+			return nil
+		})
 	}
-	wg.Wait()
-	return nil
+	return g.Wait()
 }
 
 func (r *Runner) RunAllEvalOnly(ctx context.Context, concurrency int) error {
@@ -204,24 +196,21 @@ func (r *Runner) RunAllEvalOnly(ctx context.Context, concurrency int) error {
 	}
 	close(tasks)
 	concurrency = min(concurrency, len(results))
-	var wg sync.WaitGroup
-	for i := 0; i < concurrency; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for task := range tasks {
-				evalErr := r.RunEval(ctx, task)
-				if evalErr != nil {
-					log.ErrorLog("fail to eval %d: %v", task.sample.Id(), evalErr)
-					continue
-				}
-				evalErr = r.WriteResult(ctx, task)
-				if err != nil {
-					log.ErrorLog("fail to write result for task %d: %v", task.sample.Id(), evalErr)
-				}
+	g, ctx := errgroup.WithContext(ctx)
+	g.SetLimit(concurrency)
+	for task := range tasks {
+		task := task
+		g.Go(func() error {
+			err := r.RunEval(ctx, task)
+			if err != nil {
+				return fmt.Errorf("fail to eval %d: %w", task.sample.Id(), err)
 			}
-		}()
+			err = r.WriteResult(ctx, task)
+			if err != nil {
+				return fmt.Errorf("fail to write result for task %d: %w", task.sample.Id(), err)
+			}
+			return nil
+		})
 	}
-	wg.Wait()
-	return nil
+	return g.Wait()
 }
