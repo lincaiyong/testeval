@@ -13,8 +13,9 @@ type ResultRecord struct {
 	EvalOutput larkbase.TextField   `lark:"eval_output"`
 }
 
-func NewResult(sampleId int, testInput, evalInput, testOutput, evalOutput string) *Result {
+func NewResult(recordId string, sampleId int, testInput, evalInput, testOutput, evalOutput string) *Result {
 	return &Result{
+		recordId:   recordId,
 		sampleId:   sampleId,
 		testInput:  testInput,
 		evalInput:  evalInput,
@@ -34,10 +35,6 @@ type Result struct {
 
 func (r *Result) RecordId() string {
 	return r.recordId
-}
-
-func (r *Result) SetRecordId(recordId string) {
-	r.recordId = recordId
 }
 
 func (r *Result) SetTestOutput(testOutput string) {
