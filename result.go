@@ -9,9 +9,18 @@ func NewResult(sample *Sample, testOutput, evalOutput string) *Result {
 }
 
 type Result struct {
+	recordId   string
 	sample     *Sample
 	testOutput string
 	evalOutput string
+}
+
+func (r *Result) RecordId() string {
+	return r.recordId
+}
+
+func (r *Result) SetRecordId(recordId string) {
+	r.recordId = recordId
 }
 
 func (r *Result) SetTestOutput(testOutput string) {

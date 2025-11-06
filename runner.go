@@ -74,7 +74,7 @@ func (r *Runner) connect(ctx context.Context) error {
 	return nil
 }
 
-func (r *Runner) WriteResult(ctx context.Context, result *Result) error {
+func (r *Runner) WriteResult(ctx context.Context, result *Result, create bool) error {
 	if err := r.connect(ctx); err != nil {
 		return err
 	}
@@ -85,9 +85,17 @@ func (r *Runner) WriteResult(ctx context.Context, result *Result) error {
 	record.EvalInput.SetValue(result.EvalInput())
 	record.TestOutput.SetValue(result.TestOutput())
 	record.EvalOutput.SetValue(result.EvalOutput())
-	if err := r.conn.Create(&record); err != nil {
-		return err
+	if create {
+		if err := r.conn.Create(&record); err != nil {
+			return err
+		}
+	} else {
+		record.RecordId = result.RecordId()
+		if err := r.conn.Update(&record); err != nil {
+			return err
+		}
 	}
+
 	return nil
 }
 
@@ -105,9 +113,11 @@ func (r *Runner) ReadResults(ctx context.Context) ([]*Result, error) {
 	results := make([]*Result, len(records))
 	for i, record := range records {
 		sampleId, _ := strconv.Atoi(record.SampleId.StringValue())
-		results[i] = NewResult(
+		result := NewResult(
 			NewSample(sampleId, record.TestInput.StringValue(), record.EvalInput.StringValue()),
 			record.TestOutput.StringValue(), record.EvalOutput.StringValue())
+		result.SetRecordId(record.RecordId)
+		results[i] = result
 	}
 	return results, nil
 }
@@ -146,7 +156,7 @@ func (r *Runner) RunAllTestEval(ctx context.Context, concurrency int) error {
 			if err != nil {
 				return fmt.Errorf("fail to eval task %d: %w", task.Id(), err)
 			}
-			err = r.WriteResult(ctx, result)
+			err = r.WriteResult(ctx, result, true)
 			if err != nil {
 				return fmt.Errorf("fail to write result for task %d: %w", task.Id(), err)
 			}
@@ -186,7 +196,7 @@ func (r *Runner) RunAllTestOnly(ctx context.Context, concurrency int) error {
 			if err != nil {
 				return fmt.Errorf("fail to run task %d: %w", task.Id(), err)
 			}
-			err = r.WriteResult(ctx, result)
+			err = r.WriteResult(ctx, result, true)
 			if err != nil {
 				return fmt.Errorf("fail to write result for task %d: %w", task.Id(), err)
 			}
@@ -216,7 +226,7 @@ func (r *Runner) RunAllEvalOnly(ctx context.Context, concurrency int) error {
 			if err != nil {
 				return fmt.Errorf("fail to eval %d: %w", task.sample.Id(), err)
 			}
-			err = r.WriteResult(ctx, task)
+			err = r.WriteResult(ctx, task, false)
 			if err != nil {
 				return fmt.Errorf("fail to write result for task %d: %w", task.sample.Id(), err)
 			}
