@@ -2,6 +2,7 @@ package testeval
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/lincaiyong/larkbase"
 	"golang.org/x/sync/errgroup"
@@ -11,28 +12,76 @@ import (
 type ReadFn func(ctx context.Context) ([]*Result, error)
 type RunFn func(ctx context.Context, result *Result) error
 
-func NewRunner(tableUrl, taskName string, readFn ReadFn, runTestFn, runEvalFn RunFn) *Runner {
+func NewRunner(appId, appSecret, sampleTable, resultTable, taskName string, runTestFn, runEvalFn RunFn) *Runner {
 	return &Runner{
-		tableUrl:  tableUrl,
-		taskName:  taskName,
-		readFn:    readFn,
-		runTestFn: runTestFn,
-		runEvalFn: runEvalFn,
+		appId:       appId,
+		appSecret:   appSecret,
+		sampleTable: sampleTable,
+		resultTable: resultTable,
+		taskName:    taskName,
+		runTestFn:   runTestFn,
+		runEvalFn:   runEvalFn,
 	}
 }
 
 type Runner struct {
-	tableUrl string
-	conn     *larkbase.Connection[ResultRecord]
+	appId       string
+	appSecret   string
+	sampleTable string
+	testFields  []string
+	evalFields  []string
+	resultTable string
+	conn        *larkbase.Connection[ResultRecord]
 
 	taskName  string
-	readFn    ReadFn
 	runTestFn RunFn
 	runEvalFn RunFn
 }
 
+func (r *Runner) SetTestFields(f []string) {
+	r.testFields = f
+}
+
+func (r *Runner) SetEvalFields(f []string) {
+	r.evalFields = f
+}
+
 func (r *Runner) ReadSamples(ctx context.Context) ([]*Result, error) {
-	return r.readFn(ctx)
+	conn, err := larkbase.ConnectAny(ctx, r.appId, r.appSecret, r.sampleTable)
+	if err != nil {
+		return nil, err
+	}
+	var records []*larkbase.AnyRecord
+	err = conn.FindAll(&records, larkbase.NewViewIdFindOption(conn.ViewId()))
+	if err != nil {
+		return nil, err
+	}
+	ret := make([]*Result, 0, len(records))
+	for _, record := range records {
+		sampleId, _ := strconv.Atoi(record.Data["id"])
+		if sampleId == 0 {
+			return nil, fmt.Errorf("id field is invalid from sample id: %s", record.Data)
+		}
+		data := make(map[string]string)
+		for _, k := range r.testFields {
+			if record.Data[k] != "" {
+				data[k] = record.Data[k]
+			}
+		}
+		b, _ := json.Marshal(data)
+		testInput := string(b)
+		data = make(map[string]string)
+		for _, k := range r.evalFields {
+			if record.Data[k] != "" {
+				data[k] = record.Data[k]
+			}
+		}
+		b, _ = json.Marshal(data)
+		evalInput := string(b)
+		result := NewResult(record.RecordId, sampleId, testInput, evalInput, "", "")
+		ret = append(ret, result)
+	}
+	return ret, nil
 }
 
 func (r *Runner) RunTest(ctx context.Context, result *Result) error {
@@ -47,10 +96,10 @@ func (r *Runner) TaskName() string {
 	return r.taskName
 }
 
-func (r *Runner) connect(ctx context.Context) error {
+func (r *Runner) connectResultTable(ctx context.Context) error {
 	if r.conn == nil {
 		var err error
-		r.conn, err = larkbase.ConnectWithUrl[ResultRecord](ctx, appId, appSecret, r.tableUrl)
+		r.conn, err = larkbase.ConnectUrl[ResultRecord](ctx, r.appId, r.appSecret, r.resultTable)
 		if err != nil {
 			return err
 		}
@@ -59,7 +108,7 @@ func (r *Runner) connect(ctx context.Context) error {
 }
 
 func (r *Runner) WriteResult(ctx context.Context, result *Result, create bool) error {
-	if err := r.connect(ctx); err != nil {
+	if err := r.connectResultTable(ctx); err != nil {
 		return err
 	}
 	var record ResultRecord
@@ -84,7 +133,7 @@ func (r *Runner) WriteResult(ctx context.Context, result *Result, create bool) e
 }
 
 func (r *Runner) ReadResults(ctx context.Context) ([]*Result, error) {
-	if err := r.connect(ctx); err != nil {
+	if err := r.connectResultTable(ctx); err != nil {
 		return nil, err
 	}
 	var records []*ResultRecord
