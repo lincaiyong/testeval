@@ -4,10 +4,8 @@ github.com/jinzhu/inflection v1.0.0 h1:K317FqzuhWc8YvSVlFMCCUb36O/S9MCKRDI7QkRKD
 github.com/jinzhu/inflection v1.0.0/go.mod h1:h+uFLlag+Qp1Va5pdKtLDYj+kHp5pxUVkryuEj+Srlc=
 github.com/jinzhu/now v1.1.5 h1:/o9tlHleP7gOFmsnYNz3RGnqzefHA47wQpKrrdTIwXQ=
 github.com/jinzhu/now v1.1.5/go.mod h1:d3SSVoowX0Lcu0IBviAWJpolVfI5UJVZZ7cO71lE/z8=
-github.com/lincaiyong/larkbase v1.0.26 h1:bK3HzM4/VgnNIkDRR8optkvMotDpkXs2e7GI9T6Bw8g=
-github.com/lincaiyong/larkbase v1.0.26/go.mod h1:EdMPQE68mzqOnEya1ElJsDnn/tj7slXzf+dcq6ru8+8=
-github.com/lincaiyong/log v0.0.0-20250929160056-7d399ec7ee57 h1:cvqNGG08ytTixRksEGQhOdP7W1/U+G/y01yu3jMXBws=
-github.com/lincaiyong/log v0.0.0-20250929160056-7d399ec7ee57/go.mod h1:FMN0b4siU9J85Yx0AHjQa6HjzkQC4M6YZ75i3SJclgE=
+github.com/lincaiyong/larkbase v1.0.27 h1:dVaMN4mKpAkKYksDxZYd+c3oVKEJpBYxiz9HAnrqOSU=
+github.com/lincaiyong/larkbase v1.0.27/go.mod h1:EdMPQE68mzqOnEya1ElJsDnn/tj7slXzf+dcq6ru8+8=
 github.com/lincaiyong/log v1.0.4 h1:CGqedLp3bX3CmyJZ9gucNnZOWgItBkp9zVlWDkdRF9k=
 github.com/lincaiyong/log v1.0.4/go.mod h1:WoYpWABNVVZ8axgLURlrlrks5rjJ229408gjDVQtlx4=
 github.com/mattn/go-colorable v0.1.14 h1:9A9LHSqF/7dyVVX6g0U9cwm9pG3kP9gSzcuIPHPsaIE=

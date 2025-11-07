@@ -3,7 +3,7 @@ module github.com/lincaiyong/testeval
 go 1.25.0
 
 require (
-	github.com/lincaiyong/larkbase v1.0.26
+	github.com/lincaiyong/larkbase v1.0.27
 	golang.org/x/sync v0.17.0
 )
 
