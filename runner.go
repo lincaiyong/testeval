@@ -38,12 +38,12 @@ type Runner struct {
 	runEvalFn RunFn
 }
 
-func (r *Runner) SetTestFields(f []string) {
-	r.testFields = f
+func (r *Runner) SetTestFields(s ...string) {
+	r.testFields = s
 }
 
-func (r *Runner) SetEvalFields(f []string) {
-	r.evalFields = f
+func (r *Runner) SetEvalFields(s ...string) {
+	r.evalFields = s
 }
 
 func (r *Runner) ReadSamples(ctx context.Context) ([]*Result, error) {
@@ -62,22 +62,31 @@ func (r *Runner) ReadSamples(ctx context.Context) ([]*Result, error) {
 		if sampleId == 0 {
 			return nil, fmt.Errorf("id field is invalid from sample id: %s", record.Data)
 		}
-		data := make(map[string]string)
-		for _, k := range r.testFields {
-			if record.Data[k] != "" {
-				data[k] = record.Data[k]
+		var testInput, evalInput string
+		if len(r.testFields) == 1 {
+			testInput = record.Data[r.testFields[0]]
+		} else {
+			data := make(map[string]string)
+			for _, k := range r.testFields {
+				if record.Data[k] != "" {
+					data[k] = record.Data[k]
+				}
 			}
+			b, _ := json.Marshal(data)
+			testInput = string(b)
 		}
-		b, _ := json.Marshal(data)
-		testInput := string(b)
-		data = make(map[string]string)
-		for _, k := range r.evalFields {
-			if record.Data[k] != "" {
-				data[k] = record.Data[k]
+		if len(r.evalFields) == 1 {
+			evalInput = record.Data[r.evalFields[0]]
+		} else {
+			data := make(map[string]string)
+			for _, k := range r.evalFields {
+				if record.Data[k] != "" {
+					data[k] = record.Data[k]
+				}
 			}
+			b, _ := json.Marshal(data)
+			evalInput = string(b)
 		}
-		b, _ = json.Marshal(data)
-		evalInput := string(b)
 		result := NewResult(record.RecordId, sampleId, testInput, evalInput, "", "")
 		ret = append(ret, result)
 	}
@@ -155,6 +164,10 @@ func (r *Runner) ReadResults(ctx context.Context) ([]*Result, error) {
 }
 
 func (r *Runner) run(ctx context.Context, concurrency int, doTest, doEval bool) error {
+	if len(r.testFields) == 0 || len(r.evalFields) == 0 {
+		return fmt.Errorf("test fields or eval fields is empty")
+	}
+
 	results, err := r.ReadResults(ctx)
 	if err != nil {
 		return fmt.Errorf("fail to read results: %w", err)
