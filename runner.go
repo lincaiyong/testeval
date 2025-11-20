@@ -189,6 +189,7 @@ func (r *Runner) run(ctx context.Context, concurrency int, doTest, doEval bool) 
 		} else {
 			if tmp, ok := existsResults[sample.SampleId()]; ok {
 				sample.SetTestOutput(tmp.TestOutput())
+				sample.SetEvalOutput(tmp.EvalOutput())
 				sample.SetRecordId(tmp.RecordId())
 				tasks <- sample
 			}
