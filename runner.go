@@ -202,6 +202,12 @@ func (r *Runner) run(ctx context.Context, concurrency int, doTest, doEval bool) 
 	for task := range tasks {
 		task := task
 		g.Go(func() error {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			default:
+			}
+
 			var err error
 			if doTest {
 				err = r.RunTest(ctx, task)
