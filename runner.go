@@ -164,8 +164,8 @@ func (r *Runner) ReadResults(ctx context.Context) ([]*Result, error) {
 }
 
 func (r *Runner) run(ctx context.Context, concurrency int, doTest, doEval bool) error {
-	if len(r.testFields) == 0 || len(r.evalFields) == 0 {
-		return fmt.Errorf("test fields or eval fields is empty")
+	if len(r.testFields) == 0 {
+		return fmt.Errorf("test input fields is empty")
 	}
 
 	results, err := r.ReadResults(ctx)
