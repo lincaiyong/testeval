@@ -11,6 +11,7 @@ type ResultRecord struct {
 	EvalInput  larkbase.TextField   `lark:"eval_input"`
 	TestOutput larkbase.TextField   `lark:"test_output"`
 	EvalOutput larkbase.TextField   `lark:"eval_output"`
+	TestCost   larkbase.NumberField `lark:"test_cost"`
 }
 
 func NewResult(recordId string, sampleId int, testInput, evalInput, testOutput, evalOutput string) *Result {
@@ -25,12 +26,13 @@ func NewResult(recordId string, sampleId int, testInput, evalInput, testOutput, 
 }
 
 type Result struct {
-	recordId   string
-	sampleId   int
-	testInput  string
-	evalInput  string
-	testOutput string
-	evalOutput string
+	recordId    string
+	sampleId    int
+	testInput   string
+	evalInput   string
+	testOutput  string
+	evalOutput  string
+	testCostSec int
 }
 
 func (r *Result) RecordId() string {

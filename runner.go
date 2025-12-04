@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"github.com/lincaiyong/larkbase"
 	"golang.org/x/sync/errgroup"
+	"math"
 	"strconv"
+	"time"
 )
 
 type ReadFn func(ctx context.Context) ([]*Result, error)
@@ -126,6 +128,7 @@ func (r *Runner) WriteResult(ctx context.Context, result *Result, create bool) e
 	record.TestInput.SetValue(result.TestInput())
 	record.EvalInput.SetValue(result.EvalInput())
 	record.TestOutput.SetValue(result.TestOutput())
+	record.TestCost.SetIntValue(result.testCostSec)
 	record.EvalOutput.SetValue(result.EvalOutput())
 	if create {
 		if err := r.conn.Create(&record); err != nil {
@@ -210,10 +213,12 @@ func (r *Runner) run(ctx context.Context, concurrency int, doTest, doEval bool) 
 
 			var err error
 			if doTest {
+				runStart := time.Now()
 				err = r.RunTest(ctx, task)
 				if err != nil {
 					return fmt.Errorf("fail to run task %d: %w", task.SampleId(), err)
 				}
+				task.testCostSec = int(math.Round(time.Since(runStart).Seconds()))
 			}
 			if doEval {
 				err = r.RunEval(ctx, task)
