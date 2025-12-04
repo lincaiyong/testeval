@@ -128,7 +128,9 @@ func (r *Runner) WriteResult(ctx context.Context, result *Result, create bool) e
 	record.TestInput.SetValue(result.TestInput())
 	record.EvalInput.SetValue(result.EvalInput())
 	record.TestOutput.SetValue(result.TestOutput())
-	record.TestCost.SetIntValue(result.testCostSec)
+	if result.testCostSec > 0 {
+		record.TestCost.SetIntValue(result.testCostSec)
+	}
 	record.EvalOutput.SetValue(result.EvalOutput())
 	if create {
 		if err := r.conn.Create(&record); err != nil {
