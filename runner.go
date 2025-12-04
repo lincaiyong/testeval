@@ -212,9 +212,17 @@ func (r *Runner) run(ctx context.Context, concurrency int, doTest, doEval bool) 
 				return ctx.Err()
 			default:
 			}
-
+			create := true
+			if !doTest {
+				create = false
+			}
 			var err error
 			if doTest {
+				task.testOutput = "running..."
+				err = r.WriteResult(ctx, task, create)
+				if err != nil {
+					return fmt.Errorf("fail to write result for task %d: %w", task.SampleId(), err)
+				}
 				runStart := time.Now()
 				err = r.RunTest(ctx, task)
 				if err != nil {
@@ -227,10 +235,6 @@ func (r *Runner) run(ctx context.Context, concurrency int, doTest, doEval bool) 
 				if err != nil {
 					return fmt.Errorf("fail to eval task %d: %w", task.SampleId(), err)
 				}
-			}
-			create := true
-			if !doTest {
-				create = false
 			}
 			err = r.WriteResult(ctx, task, create)
 			if err != nil {
