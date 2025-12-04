@@ -136,6 +136,7 @@ func (r *Runner) WriteResult(ctx context.Context, result *Result, create bool) e
 		if err := r.conn.Create(&record); err != nil {
 			return err
 		}
+		result.SetRecordId(record.RecordId)
 	} else {
 		record.RecordId = result.RecordId()
 		if err := r.conn.Update(&record); err != nil {
