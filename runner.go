@@ -226,16 +226,20 @@ func (r *Runner) run(ctx context.Context, concurrency int, doTest, doEval bool) 
 					return fmt.Errorf("fail to run task %d: %w", task.SampleId(), err)
 				}
 				task.testCostSec = int(math.Round(time.Since(runStart).Seconds()))
+				err = r.WriteResult(ctx, task, false)
+				if err != nil {
+					return fmt.Errorf("fail to write result for task %d: %w", task.SampleId(), err)
+				}
 			}
 			if doEval {
 				err = r.RunEval(ctx, task)
 				if err != nil {
 					return fmt.Errorf("fail to eval task %d: %w", task.SampleId(), err)
 				}
-			}
-			err = r.WriteResult(ctx, task, false)
-			if err != nil {
-				return fmt.Errorf("fail to write result for task %d: %w", task.SampleId(), err)
+				err = r.WriteResult(ctx, task, false)
+				if err != nil {
+					return fmt.Errorf("fail to write result for task %d: %w", task.SampleId(), err)
+				}
 			}
 			return nil
 		})
