@@ -147,14 +147,16 @@ func (r *Runner) WriteResult(ctx context.Context, result *Result, create bool) e
 	return nil
 }
 
-func (r *Runner) ReadResults(ctx context.Context) ([]*Result, error) {
+func (r *Runner) ReadResults(ctx context.Context, id int) ([]*Result, error) {
 	if err := r.connectResultTable(ctx); err != nil {
 		return nil, err
 	}
 	var records []*ResultRecord
-	err := r.conn.FindAll(&records, larkbase.NewFindOption(r.conn.FilterAnd(
-		r.conn.Condition().TaskName.Is(r.taskName),
-	)))
+	conditions := []*larkbase.Condition{r.conn.Condition().TaskName.Is(r.taskName)}
+	if id > 0 {
+		conditions = append(conditions, r.conn.Condition().SampleId.Is(id))
+	}
+	err := r.conn.FindAll(&records, larkbase.NewFindOption(r.conn.FilterAnd(conditions...)))
 	if err != nil {
 		return nil, err
 	}
@@ -169,12 +171,12 @@ func (r *Runner) ReadResults(ctx context.Context) ([]*Result, error) {
 	return results, nil
 }
 
-func (r *Runner) run(ctx context.Context, concurrency int, doTest, doEval bool) error {
+func (r *Runner) run(ctx context.Context, id, concurrency int, doTest, doEval bool) error {
 	if len(r.testFields) == 0 {
 		return fmt.Errorf("test input fields is empty")
 	}
 
-	results, err := r.ReadResults(ctx)
+	results, err := r.ReadResults(ctx, id)
 	if err != nil {
 		return fmt.Errorf("fail to read results: %w", err)
 	}
@@ -247,14 +249,14 @@ func (r *Runner) run(ctx context.Context, concurrency int, doTest, doEval bool) 
 	return g.Wait()
 }
 
-func (r *Runner) RunAllTestEval(ctx context.Context, concurrency int) error {
-	return r.run(ctx, concurrency, true, true)
+func (r *Runner) RunAllTestEval(ctx context.Context, id, concurrency int) error {
+	return r.run(ctx, id, concurrency, true, true)
 }
 
-func (r *Runner) RunAllTestOnly(ctx context.Context, concurrency int) error {
-	return r.run(ctx, concurrency, true, false)
+func (r *Runner) RunAllTestOnly(ctx context.Context, id, concurrency int) error {
+	return r.run(ctx, id, concurrency, true, false)
 }
 
-func (r *Runner) RunAllEvalOnly(ctx context.Context, concurrency int) error {
-	return r.run(ctx, concurrency, false, true)
+func (r *Runner) RunAllEvalOnly(ctx context.Context, id, concurrency int) error {
+	return r.run(ctx, id, concurrency, false, true)
 }
